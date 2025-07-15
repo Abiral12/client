@@ -6,16 +6,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { getAuthToken } from '@/utils/auth';
 import { toast } from 'react-hot-toast';
-
-interface Product {
-  category: string;
-  subcategory: string;
-  size?: string;
-  color: string;
-  quantity: number;
-  purchasePrice: number;
-  sellingPrice: number;
-}
+import { Product } from '@/app/types/product';
 
 interface StockInFormProps {
   onClose: () => void;

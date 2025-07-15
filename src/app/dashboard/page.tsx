@@ -36,6 +36,8 @@ import {
 } from "chart.js";
 import { useDebounce } from "use-debounce";
 import { useRouter } from "next/navigation";
+import { Product } from '@/app/types/product';
+
 
 ChartJS.register(
   ArcElement,
@@ -53,21 +55,21 @@ ChartJS.register(
 import ReportsPanel from "@/components/ReportsPanel";
 
 // Define a Product type
-interface Product {
-  _id: string;
-  sku: string;
-  category: string;
-  subcategory: string;
-  size?: string;
-  color: string;
-  quantity: number;
-  purchasePrice: number;
-  sellingPrice: number;
-  qrCode?: string;
-  createdAt?: string;
-  lastUpdated?: string;
-  soldCount?: number;
-}
+// interface Product {
+//   _id?: string;
+//   sku?: string;
+//   category: string;
+//   subcategory: string;
+//   size?: string;
+//   color: string;
+//   quantity: number;
+//   purchasePrice: number;
+//   sellingPrice: number;
+//   qrCode?: string;
+//   createdAt?: string;
+//   lastUpdated?: string;
+//   soldCount?: number;
+// }
 
 // Add this helper function above the Dashboard component
 const getLast7DaysLabels = () => {
