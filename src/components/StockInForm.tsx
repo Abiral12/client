@@ -7,7 +7,22 @@ import axios from 'axios';
 import { getAuthToken } from '@/utils/auth';
 import { toast } from 'react-hot-toast';
 
-const StockInForm = ({ onClose, onAddProduct }: any) => {
+interface Product {
+  category: string;
+  subcategory: string;
+  size?: string;
+  color: string;
+  quantity: number;
+  purchasePrice: number;
+  sellingPrice: number;
+}
+
+interface StockInFormProps {
+  onClose: () => void;
+  onAddProduct: (product: Product) => void;
+}
+
+const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
   const [formData, setFormData] = useState({
     category: '',
     subcategory: '',
@@ -39,7 +54,7 @@ const StockInForm = ({ onClose, onAddProduct }: any) => {
     }
   }, [formData.category]);
 
-  const handleChange = (e: any) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ 
       ...prev, 
@@ -47,7 +62,7 @@ const StockInForm = ({ onClose, onAddProduct }: any) => {
     }));
   };
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
@@ -117,16 +132,28 @@ const StockInForm = ({ onClose, onAddProduct }: any) => {
         setError(errorMsg);
         toast.error(errorMsg);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMsg = 'Server error';
-      
-      if (err.response) {
-        console.error("Backend error response:", err.response.data);
-        errorMsg = err.response.data?.message || 
-                  JSON.stringify(err.response.data) || 
-                  `HTTP ${err.response.status}`;
+
+      if (
+        err &&
+        typeof err === 'object' &&
+        'response' in err
+      ) {
+        const errorObj = err as { response?: { data?: unknown; status?: number } };
+        console.error("Backend error response:", errorObj.response?.data);
+
+        // Safely check if data has a message property
+        const data = errorObj.response?.data;
+        if (data && typeof data === 'object' && 'message' in data) {
+          errorMsg = (data as { message: string }).message;
+        } else if (data) {
+          errorMsg = JSON.stringify(data);
+        } else if (errorObj.response?.status) {
+          errorMsg = `HTTP ${errorObj.response.status}`;
+        }
       }
-      
+
       setError(errorMsg);
       toast.error(errorMsg);
       console.error('API Error:', err);
