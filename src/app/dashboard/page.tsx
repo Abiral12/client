@@ -36,8 +36,8 @@ import {
 } from "chart.js";
 import { useDebounce } from "use-debounce";
 import { useRouter } from "next/navigation";
-import { Product } from '@/app/types/product';
-
+import { startOfDay, endOfDay } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 
 ChartJS.register(
   ArcElement,
@@ -55,21 +55,21 @@ ChartJS.register(
 import ReportsPanel from "@/components/ReportsPanel";
 
 // Define a Product type
-// interface Product {
-//   _id?: string;
-//   sku?: string;
-//   category: string;
-//   subcategory: string;
-//   size?: string;
-//   color: string;
-//   quantity: number;
-//   purchasePrice: number;
-//   sellingPrice: number;
-//   qrCode?: string;
-//   createdAt?: string;
-//   lastUpdated?: string;
-//   soldCount?: number;
-// }
+interface Product {
+  _id: string;
+  sku: string;
+  category: string;
+  subcategory: string;
+  size?: string;
+  color: string;
+  quantity: number;
+  purchasePrice: number;
+  sellingPrice: number;
+  qrCode?: string;
+  createdAt?: string;
+  lastUpdated?: string;
+  soldCount?: number;
+}
 
 // Add this helper function above the Dashboard component
 const getLast7DaysLabels = () => {
@@ -81,6 +81,9 @@ const getLast7DaysLabels = () => {
     return date.toLocaleDateString("en-CA");
   });
 };
+
+// Add a constant for your business timezone
+const TIMEZONE = "Asia/Kathmandu";
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -188,20 +191,11 @@ export default function Dashboard() {
   const fetchTodaysSales = useCallback(async () => {
     const token = getAuthToken();
     const today = new Date();
-    const start = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate()
-    );
-    const end = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-      23,
-      59,
-      59,
-      999
-    );
+    // Convert current time to the target timezone
+    const zoned = toZonedTime(today, TIMEZONE);
+    // Get start and end of day in that timezone
+    const start = startOfDay(zoned);
+    const end = endOfDay(zoned);
     const params: SalesTrendsParams = {
       period: "daily",
       start: start.toISOString(),
