@@ -1,9 +1,11 @@
-// components/SellModal.tsx
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Scan, ArrowLeft, CameraOff, AlertCircle, Package, Tag, Palette, Ruler, Layers } from 'lucide-react';
+import { X, ShoppingBag, Scan, CheckCircle, Plus, Minus } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import QRScanner from './QRScanner';
+import axios from 'axios';
+import { getAuthToken } from '@/utils/auth';
 import { Html5Qrcode } from 'html5-qrcode';
 
 interface Product {
@@ -18,425 +20,651 @@ interface Product {
 }
 
 interface SellModalProps {
-  inventory: Product[];
   onClose: () => void;
-  onSell: (sku: string, quantity: number, soldPrice: number) => void;
+  inventory: Product[];
+  onSell: (sku: string, quantity: number, soldPrice: number) => Promise<void>;
 }
 
-const SellModal = ({ inventory, onClose, onSell }: SellModalProps) => {
-  const [scannedSKU, setScannedSKU] = useState('');
-  const [quantity, setQuantity] = useState(1);
-  const [step, setStep] = useState(0);
-  const [isScannerActive, setIsScannerActive] = useState(false);
-  const [foundProduct, setFoundProduct] = useState<Product | null>(null);
+const SellModal = ({ onClose }: SellModalProps) => {
+  const [step, setStep] = useState<'start' | 'scan' | 'summary'>('start');
+  const [scannedSKUs, setScannedSKUs] = useState<string[]>([]);
+  const [products, setProducts] = useState<(Product & { quantity: number; discountType: 'amount' | 'percent'; discountValue: number })[]>([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [overallDiscountType, setOverallDiscountType] = useState<'amount' | 'percent'>('amount');
+  const [overallDiscountValue, setOverallDiscountValue] = useState(0);
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const scannerContainerRef = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(true);
   const [saleSuccess, setSaleSuccess] = useState(false);
-  // Add state for discount and soldPrice
-  const [discountType, setDiscountType] = useState<'amount' | 'percent'>('amount');
-  const [discountValue, setDiscountValue] = useState(0);
-  const [soldPrice, setSoldPrice] = useState<number | null>(null);
 
-  // Initialize and clean up scanner
+  // Fetch product details for all scanned SKUs
   useEffect(() => {
-    if (isScannerActive && scannerContainerRef.current) {
+    const fetchProducts = async () => {
+      if (step !== 'summary' || scannedSKUs.length === 0) return;
+      setLoading(true);
+      setError('');
+      try {
+        const token = getAuthToken();
+        const res = await axios.post(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/products/skus`,
+          { skus: scannedSKUs },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (res.data.success) {
+          // Add quantity and discount fields to each product
+          setProducts(res.data.products.map((p: Product) => ({
+            ...p,
+            quantity: 1,
+            discountType: 'amount',
+            discountValue: 0,
+          })));
+        } else {
+          setError(res.data.message || 'Failed to fetch products');
+        }
+      } catch {
+        setError('Failed to fetch products');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
+  }, [step, scannedSKUs]);
+
+  useEffect(() => {
+    if (step === 'scan') {
       const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-      scannerRef.current = new Html5Qrcode(scannerContainerRef.current.id);
+      scannerRef.current = new Html5Qrcode('scanner-container');
       scannerRef.current
         .start(
           { facingMode: 'environment' },
           config,
           (decodedText) => {
-            setScannedSKU(decodedText);
-            setIsScannerActive(false);
-            handleFindProduct(decodedText);
+            setScannedSKUs((prev) => prev.includes(decodedText) ? prev : [...prev, decodedText]);
           },
           (errorMessage) => {
-            console.log('Scan error:', errorMessage);
+            console.error('Scan error:', errorMessage);
           }
         )
         .catch((err) => {
           console.error('Camera error:', err);
-          setIsScannerActive(false);
         });
     }
     return () => {
       if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop().catch((err) => {
-          console.error('Error stopping scanner:', err);
-        });
+        scannerRef.current.stop().catch(() => {});
       }
     };
+  }, [step]);
 
-  }, [isScannerActive]);
+  // Remove product from list
+  const handleRemoveSKU = (sku: string) => {
+    setScannedSKUs((prev) => prev.filter((s) => s !== sku));
+    setProducts((prev) => prev.filter((p) => p.sku !== sku));
+  };
 
-  const handleFindProduct = (sku: string) => {
+  // Update quantity for a product
+  const handleQuantityChange = (sku: string, delta: number) => {
+    setProducts((prev) => prev.map((p) =>
+      p.sku === sku ? { ...p, quantity: Math.max(1, p.quantity + delta) } : p
+    ));
+  };
+
+  // Update per-product discount
+  const handleProductDiscountChange = (sku: string, type: 'amount' | 'percent', value: number) => {
+    setProducts((prev) => prev.map((p) =>
+      p.sku === sku ? { ...p, discountType: type, discountValue: value } : p
+    ));
+  };
+
+  // Calculate per-product total after discount
+  const getProductTotal = (p: Product & { quantity: number; discountType: 'amount' | 'percent'; discountValue: number }) => {
+    let price = p.sellingPrice;
+    if (p.discountType === 'amount') {
+      price = Math.max(0, price - p.discountValue);
+    } else if (p.discountType === 'percent') {
+      price = Math.max(0, price - (price * p.discountValue) / 100);
+    }
+    return price * p.quantity;
+  };
+
+  // Calculate subtotal (before overall discount)
+  const subtotal = products.reduce((sum, p) => sum + getProductTotal(p), 0);
+
+  // Calculate total after overall discount
+  let total = subtotal;
+  if (overallDiscountType === 'amount') {
+    total = Math.max(0, subtotal - overallDiscountValue);
+  } else if (overallDiscountType === 'percent') {
+    total = Math.max(0, subtotal - (subtotal * overallDiscountValue) / 100);
+  }
+
+  const handleFinalizeSale = async () => {
+    setLoading(true);
     setError('');
-    const product = inventory.find((item) => item.sku === sku);
-    if (product) {
-      setFoundProduct(product);
-      setStep(1);
-      setQuantity(1);
-    } else {
-      setFoundProduct(null);
-      setError('Product not found!');
-    }
-  };
-
-  const handleScanSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleFindProduct(scannedSKU);
-  };
-
-  // Calculate sold price whenever discount changes
-  useEffect(() => {
-    if (foundProduct) {
-      const price = foundProduct.sellingPrice;
-      let finalPrice = price;
-      if (discountType === 'amount') {
-        finalPrice = Math.max(0, price - discountValue);
-      } else if (discountType === 'percent') {
-        finalPrice = Math.max(0, price - (price * discountValue) / 100);
+    try {
+      const token = getAuthToken();
+      for (const p of products) {
+        let price = p.sellingPrice;
+        if (p.discountType === 'amount') {
+          price = Math.max(0, price - p.discountValue);
+        } else if (p.discountType === 'percent') {
+          price = Math.max(0, price - (price * p.discountValue) / 100);
+        }
+        await axios.post(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/sales/create`,
+          {
+            productId: p._id,
+            quantity: p.quantity,
+            soldPrice: price,
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
       }
-      setSoldPrice(Number(finalPrice.toFixed(2)));
-    } else {
-      setSoldPrice(null);
-    }
-  }, [discountType, discountValue, foundProduct]);
-
-  const handleSellSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (foundProduct && soldPrice !== null) {
-      onSell(foundProduct.sku, quantity, soldPrice);
+      // Post bulk sale record
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/sales/bulksales/create`,
+        {
+          products: products.map(p => ({
+            productId: p._id,
+            sku: p.sku,
+            quantity: p.quantity,
+            soldPrice: getProductTotal(p) / p.quantity,
+            discountType: p.discountType,
+            discountValue: p.discountValue,
+          })),
+          subtotal,
+          orderDiscountType: overallDiscountType,
+          orderDiscountValue: overallDiscountValue,
+          total,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       setSaleSuccess(true);
       setTimeout(() => {
         setSaleSuccess(false);
-        setStep(0);
-        setScannedSKU('');
-        setFoundProduct(null);
-        setQuantity(1);
-        setDiscountValue(0);
-        setSoldPrice(null);
-        handleClose();
-      }, 10000); 
+        onClose();
+      }, 2000);
+    } catch {
+      setError('Failed to complete sale');
+    } finally {
+      setLoading(false);
     }
-  };
-
-  // Reset modal state when closed
-  useEffect(() => {
-    if (step === 0) {
-      setScannedSKU('');
-      setFoundProduct(null);
-      setError('');
-      setQuantity(1);
-    }
-  }, [step]);
-
-  const handleClose = () => {
-    setIsVisible(false);
-    setTimeout(() => onClose(), 300);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-[100] p-4">
       <AnimatePresence>
-        {isVisible && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            // Changed to responsive width with max-height constraints
-            className="bg-gradient-to-br from-gray-50 to-white rounded-2xl shadow-2xl w-full max-w-[95vw] md:max-w-md max-h-[90vh] overflow-hidden border border-gray-200 flex flex-col"
-          >
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-gray-900 to-black text-white p-6 flex items-center">
-              <div className="flex items-center">
-                {step === 1 && (
-                  <motion.button 
-                    whileHover={{ x: -3 }}
-                    onClick={() => setStep(0)} 
-                    className="mr-3 text-gray-300 hover:text-white"
-                  >
-                    <ArrowLeft size={20} />
-                  </motion.button>
-                )}
-                <h2 className="text-xl font-bold">
-                  {step === 0 ? 'Scan or Enter SKU' : 'Sell Product'}
-                </h2>
-              </div>
-              <motion.button 
-                whileHover={{ rotate: 90 }}
-                onClick={handleClose} 
-                className="ml-auto text-gray-300 hover:text-white"
-              >
-                <X size={24} />
-              </motion.button>
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 20, scale: 0.95 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className="bg-gradient-to-br from-gray-50 to-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden border border-gray-200/80 flex flex-col backdrop-blur-sm"
+        >
+          {/* Enhanced Header */}
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex items-center justify-between rounded-t-3xl">
+            <div className="flex items-center gap-3">
+              <ShoppingBag className="w-6 h-6" />
+              <h2 className="text-xl font-bold">Sell Products</h2>
             </div>
-            
-            {/* Modal Content - Made scrollable */}
-            <div className="p-6 overflow-y-auto flex-grow">
-              {saleSuccess ? (
-                <div className="flex flex-col items-center justify-center min-h-[200px]">
-                  <div className="bg-green-100 rounded-full p-4 mb-4">
-                    <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  </div>
-                  <div className="text-xl font-bold text-green-700 mb-2">Sale Completed!</div>
-                  <div className="text-gray-600 mb-4">The sale was processed successfully.</div>
-                  <button
-                    onClick={handleClose}
-                    className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition"
-                  >
-                    Close
-                  </button>
+            <button 
+              onClick={onClose} 
+              className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full transition-all"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="p-6 flex-1 overflow-y-auto">
+            {/* Start Screen */}
+            {step === 'start' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col items-center justify-center min-h-[300px] gap-6"
+              >
+                <div className="bg-indigo-100 p-6 rounded-full">
+                  <Scan className="w-16 h-16 text-indigo-600" strokeWidth={1.5} />
                 </div>
-              ) : step === 0 ? (
-                <form onSubmit={handleScanSubmit}>
-                  {isScannerActive ? (
-                    <div className="mb-6 relative">
-                      {/* Made scanner height responsive */}
-                      <div
-                        id="scanner-container"
-                        ref={scannerContainerRef}
-                        className="min-h-[200px] max-h-[40vh] w-full bg-black rounded-xl overflow-hidden"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="border-4 border-blue-400 border-dashed rounded-xl w-48 h-48" />
-                        <div className="absolute bottom-4 text-white text-sm bg-black/50 px-3 py-1 rounded-full">
-                          Point camera at barcode
-                        </div>
-                      </div>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        type="button"
-                        onClick={() => setIsScannerActive(false)}
-                        className="absolute top-4 right-4 bg-white p-2 rounded-full shadow-lg"
-                      >
-                        <CameraOff size={20} />
-                      </motion.button>
-                    </div>
+                <h3 className="text-2xl font-bold text-gray-800">Scan Products</h3>
+                <p className="text-gray-500 text-center max-w-xs">
+                  Start scanning product QR codes to add them to the sale
+                </p>
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setStep('scan')}
+                  className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg transition-all text-lg shadow-md flex items-center gap-2"
+                >
+                  <Scan size={20} />
+                  Start Scanning
+                </motion.button>
+              </motion.div>
+            )}
+
+            {/* Scan Screen */}
+            {step === 'scan' && (
+              <div>
+                <div className="mb-6 flex justify-between items-center">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Scan className="text-indigo-600" size={20} />
+                    Scanned Products
+                  </h3>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setStep('summary')}
+                    disabled={scannedSKUs.length === 0}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                      scannedSKUs.length === 0
+                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                    }`}
+                  >
+                    Proceed to Checkout
+                  </motion.button>
+                </div>
+                
+                {/* Scanned Items List */}
+                <div className="mb-5 max-h-40 overflow-y-auto bg-gray-50 rounded-xl border border-gray-200 p-3">
+                  {scannedSKUs.length === 0 ? (
+                    <p className="text-center text-gray-500 py-4">No items scanned yet</p>
                   ) : (
-                    <div className="mb-6">
-                      <div className="relative mb-4">
-                        <div className="flex justify-center mb-6">
-                          <div className="bg-gray-100 p-5 rounded-full">
-                            <Scan className="h-8 w-8 text-gray-500" />
+                    <div className="grid grid-cols-2 gap-2">
+                      {scannedSKUs.map((sku) => (
+                        <motion.div
+                          key={sku}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="py-2 px-3 bg-white rounded-lg border border-gray-200 shadow-sm flex justify-between items-center"
+                        >
+                          <span className="font-medium text-sm truncate">{sku}</span>
+                          <button 
+                            onClick={() => handleRemoveSKU(sku)} 
+                            className="p-1 text-red-500 hover:bg-red-50 rounded-full"
+                          >
+                            <X size={16} />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Scanner Container */}
+                <div className="relative overflow-hidden rounded-2xl border-4 border-indigo-500/20 shadow-lg">
+                  <div 
+                    id="scanner-container" 
+                    className="min-h-[300px] w-full bg-black"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="border-2 border-dashed border-white/50 rounded-xl w-64 h-64" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Summary Screen */}
+            {step === 'summary' && (
+              <>
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center min-h-[300px]">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+                    <p className="text-gray-600">Loading products...</p>
+                  </div>
+                ) : error ? (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+                    <p className="text-red-600 font-medium">{error}</p>
+                  </div>
+                ) : products.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center min-h-[300px] gap-4">
+                    <Scan className="text-gray-400 w-12 h-12" />
+                    <p className="text-gray-500 text-center">
+                      No products found for scanned SKUs.<br />
+                      Try scanning again.
+                    </p>
+                    <button 
+                      onClick={() => setStep('scan')}
+                      className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg font-medium hover:bg-indigo-200"
+                    >
+                      Scan Again
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-6 flex justify-between items-center">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <ShoppingBag className="text-indigo-600" size={20} />
+                        Order Summary
+                      </h3>
+                      <button 
+                        onClick={() => setStep('scan')}
+                        className="flex items-center gap-1 px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg font-medium hover:bg-indigo-200"
+                      >
+                        <Plus size={16} />
+                        Add Items
+                      </button>
+                    </div>
+                    
+                    {/* Product List */}
+                    <div className="mb-6 space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                      {products.map((product) => (
+                        <motion.div
+                          key={product.sku}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="p-4 bg-white rounded-xl border border-gray-200 shadow-sm"
+                        >
+                          <div className="flex justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-gray-800 truncate">{product.sku}</div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {product.category} • {product.subcategory} 
+                                {product.size && ` • ${product.size}`}
+                              </div>
+                              <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                <div className="w-3 h-3 rounded-full border" style={{ backgroundColor: product.color }} />
+                                {product.color}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold text-gray-800">रू {getProductTotal(product).toFixed(2)}</div>
+                              <div className="text-xs text-gray-400">
+                                {product.quantity} × रू {product.sellingPrice}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        <div className="relative">
-                          <Scan className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                          <input
-                            type="text"
-                            value={scannedSKU}
-                            onChange={(e) => setScannedSKU(e.target.value)}
-                            placeholder="Scan barcode or enter SKU"
-                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                            autoFocus
-                          />
-                        </div>
+                          
+                          {/* Product Controls */}
+                          <div className="flex justify-between items-center mt-4">
+                            <div className="flex items-center">
+                              <button 
+                                onClick={() => handleQuantityChange(product.sku, -1)}
+                                className="p-1.5 bg-gray-100 rounded-l-lg hover:bg-gray-200"
+                              >
+                                <Minus size={16} />
+                              </button>
+                              <input
+                                type="number"
+                                min={1}
+                                value={product.quantity}
+                                onChange={e => handleQuantityChange(product.sku, Number(e.target.value) - product.quantity)}
+                                className="w-12 text-center border-y border-gray-200 bg-white py-1"
+                              />
+                              <button 
+                                onClick={() => handleQuantityChange(product.sku, 1)}
+                                className="p-1.5 bg-gray-100 rounded-r-lg hover:bg-gray-200"
+                              >
+                                <Plus size={16} />
+                              </button>
+                            </div>
+                            
+                            <div className="flex gap-2">
+                              <select
+                                value={product.discountType}
+                                onChange={e => handleProductDiscountChange(product.sku, e.target.value as 'amount' | 'percent', product.discountValue)}
+                                className="border rounded-lg px-2 py-1 text-xs bg-white"
+                              >
+                                <option value="amount">₹ Off</option>
+                                <option value="percent">% Off</option>
+                              </select>
+                              <input
+                                type="number"
+                                value={product.discountValue}
+                                onChange={e => handleProductDiscountChange(product.sku, product.discountType, Number(e.target.value))}
+                                className="w-16 text-xs border rounded-lg px-2 py-1 bg-white"
+                                placeholder={product.discountType === 'amount' ? 'Amount' : 'Percent'}
+                              />
+                            </div>
+                            
+                            <button 
+                              onClick={() => handleRemoveSKU(product.sku)}
+                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                    
+                    {/* Discount Section */}
+                    <div className="mb-6 p-4 bg-indigo-50 rounded-xl">
+                      <h4 className="font-semibold text-indigo-700 mb-3 flex items-center gap-2">
+                        Apply Order Discount
+                      </h4>
+                      <div className="flex gap-3">
+                        <select
+                          value={overallDiscountType}
+                          onChange={e => setOverallDiscountType(e.target.value as 'amount' | 'percent')}
+                          className="flex-1 border rounded-lg px-3 py-2 bg-white text-sm"
+                        >
+                          <option value="amount">Fixed Amount</option>
+                          <option value="percent">Percentage</option>
+                        </select>
+                        <input
+                          type="number"
+                          min={0}
+                          value={overallDiscountValue}
+                          onChange={e => setOverallDiscountValue(Number(e.target.value))}
+                          className="flex-1 border rounded-lg px-3 py-2 bg-white text-sm"
+                          placeholder={overallDiscountType === 'amount' ? 'Discount Amount' : 'Discount %'}
+                        />
                       </div>
+                    </div>
+                    
+                    {/* Totals */}
+                    <div className="mb-6 space-y-3">
+                      <div className="flex justify-between py-2 border-b border-gray-200">
+                        <span className="text-gray-600">Subtotal:</span>
+                        <span className="font-medium">रू {subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-gray-200">
+                        <span className="text-gray-600">Discount:</span>
+                        <span className="font-medium text-red-500">
+                          - रू {(subtotal - total).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2">
+                        <span className="font-bold text-lg">Total:</span>
+                        <span className="font-bold text-xl text-indigo-700">
+                          रू {total.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Success Message */}
+                    {saleSuccess ? (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="flex flex-col items-center justify-center py-8 bg-green-50 rounded-xl"
+                      >
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="mb-4"
+                        >
+                          <CheckCircle className="w-16 h-16 text-green-600" strokeWidth={1.5} />
+                        </motion.div>
+                        <h4 className="text-xl font-bold text-green-700 mb-2">Sale Completed!</h4>
+                        <p className="text-gray-600">Transaction processed successfully</p>
+                      </motion.div>
+                    ) : (
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        type="button"
-                        onClick={() => setIsScannerActive(true)}
-                        className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-lg hover:from-blue-700 hover:to-indigo-700 flex items-center justify-center"
+                        className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:shadow-lg transition-all shadow-md"
+                        onClick={handleFinalizeSale}
+                        disabled={loading}
                       >
-                        <Scan className="h-5 w-5 mr-2" />
-                        Scan QR Code
+                        {loading ? 'Processing...' : 'Finalize Sale'}
                       </motion.button>
-                      <p className="text-sm text-gray-500 mt-3 text-center">
-                        Use a barcode scanner or enter SKU manually
-                      </p>
-                    </div>
-                  )}
-                  
-                  {error && (
-                    <motion.div 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      className="flex items-center text-red-600 bg-red-50 rounded-xl px-4 py-3 mb-4 border border-red-100"
-                    >
-                      <AlertCircle className="mr-2" size={18} />
-                      <span>{error}</span>
-                    </motion.div>
-                  )}
-                  
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    type="submit"
-                    className="w-full py-3.5 bg-gradient-to-r from-gray-800 to-black text-white rounded-xl shadow-lg hover:from-gray-700 hover:to-gray-900"
-                    disabled={!scannedSKU}
-                  >
-                    Find Product
-                  </motion.button>
-                </form>
-              ) : foundProduct ? (
-                <form onSubmit={handleSellSubmit}>
-                  <div className="flex flex-col items-center mb-6">
-                    <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl w-full p-5 mb-5 shadow-sm">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center">
-                          <div className="bg-blue-100 p-2 rounded-lg mr-3">
-                            <Package className="h-5 w-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <div className="text-xs text-gray-500">Category</div>
-                            <div className="font-medium">{foundProduct.category}</div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center">
-                          <div className="bg-purple-100 p-2 rounded-lg mr-3">
-                            <Tag className="h-5 w-5 text-purple-600" />
-                          </div>
-                          <div>
-                            <div className="text-xs text-gray-500">Subcategory</div>
-                            <div className="font-medium">{foundProduct.subcategory}</div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center">
-                          <div className="bg-amber-100 p-2 rounded-lg mr-3">
-                            <Ruler className="h-5 w-5 text-amber-600" />
-                          </div>
-                          <div>
-                            <div className="text-xs text-gray-500">Size</div>
-                            <div className="font-medium">{foundProduct.size}</div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center">
-                          <div className="bg-pink-100 p-2 rounded-lg mr-3">
-                            <Palette className="h-5 w-5 text-pink-600" />
-                          </div>
-                          <div>
-                            <div className="text-xs text-gray-500">Color</div>
-                            <div className="font-medium">{foundProduct.color}</div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-5 pt-4 border-t border-gray-100 grid grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-sm text-gray-500 mb-1">Selling Price</div>
-                          <div className="flex items-center text-xl font-bold text-gray-900">
-                            रू {foundProduct.sellingPrice.toFixed(2)}
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <div className="text-sm text-gray-500 mb-1">Stock Quantity</div>
-                          <div className={`flex items-center text-xl font-bold ${foundProduct.quantity > 10 ? 'text-green-600' : foundProduct.quantity > 5 ? 'text-amber-600' : 'text-red-600'}`}>
-                            <Layers className="h-5 w-5 mr-1" />
-                            {foundProduct.quantity}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Discount Section - Improved responsive layout */}
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Discount</label>
-                    <div className="flex flex-col sm:flex-row gap-2 mb-2">
-                      <select
-                        value={discountType}
-                        onChange={e => setDiscountType(e.target.value as 'amount' | 'percent')}
-                        className="border rounded-xl sm:rounded-l-xl sm:rounded-r-none px-3 py-2 focus:ring-2 focus:ring-blue-500 flex-1"
-                      >
-                        <option value="amount">Amount (रू)</option>
-                        <option value="percent">Percent (%)</option>
-                      </select>
-                      <input
-                        type="number"
-                        min="0"
-                        max={discountType === 'amount' ? foundProduct.sellingPrice : 100}
-                        value={discountValue}
-                        onChange={e => setDiscountValue(Number(e.target.value))}
-                        className="px-3 py-2 border rounded-xl sm:rounded-r-xl sm:rounded-l-none focus:ring-2 focus:ring-blue-500 text-center flex-1"
-                        placeholder={discountType === 'amount' ? '0' : '0'}
-                      />
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {discountType === 'amount'
-                        ? `Discounted by रू ${discountValue}`
-                        : `Discounted by ${discountValue}%`}
-                    </div>
-                  </div>
-                  
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Quantity to Sell
-                    </label>
-                    <div className="flex items-center justify-center max-w-xs mx-auto">
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        type="button"
-                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        className="px-5 py-2.5 bg-gray-100 border border-gray-300 rounded-l-xl hover:bg-gray-200 text-lg font-bold"
-                      >
-                        -
-                      </motion.button>
-                      <input
-                        type="number"
-                        value={quantity}
-                        onChange={(e) => setQuantity(Math.max(1, Math.min(foundProduct.quantity, parseInt(e.target.value) || 1)))}
-                        className="w-full px-4 py-2.5 border-t border-b border-gray-300 text-center text-lg font-bold"
-                        min="1"
-                        max={foundProduct.quantity}
-                      />
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        type="button"
-                        onClick={() => setQuantity(Math.min(foundProduct.quantity, quantity + 1))}
-                        className="px-5 py-2.5 bg-gray-100 border border-gray-300 rounded-r-xl hover:bg-gray-200 text-lg font-bold"
-                      >
-                        +
-                      </motion.button>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gradient-to-br from-blue-50 to-white p-5 rounded-xl mb-6 border border-blue-100 shadow-sm">
-                    <div className="flex justify-between mb-3 pb-2 border-b border-blue-100">
-                      <span className="text-gray-600">Unit Price:</span>
-                      <span className="font-medium text-gray-900">रू {foundProduct.sellingPrice.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between mb-3 pb-2 border-b border-blue-100">
-                      <span className="text-gray-600">Discounted Price:</span>
-                      <span className="font-medium text-green-700">रू {soldPrice !== null ? soldPrice.toFixed(2) : foundProduct.sellingPrice.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between mb-3 pb-2 border-b border-blue-100">
-                      <span className="text-gray-600">Quantity:</span>
-                      <span className="font-medium text-gray-900">{quantity}</span>
-                    </div>
-                    <div className="flex justify-between text-lg font-bold pt-2">
-                      <span>Total:</span>
-                      <span className="text-blue-700">RS {soldPrice !== null ? (soldPrice * quantity).toFixed(2) : (foundProduct.sellingPrice * quantity).toFixed(2)}</span>
-                    </div>
-                  </div>
-                  
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    type="submit"
-                    className="w-full py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl shadow-lg hover:from-green-700 hover:to-emerald-700 font-bold"
-                  >
-                    Complete Sale
-                  </motion.button>
-                </form>
-              ) : null}
-            </div>
-          </motion.div>
-        )}
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </motion.div>
       </AnimatePresence>
     </div>
   );
 };
+
+// MultiScanSellModal: Updated to match new design system
+export function MultiScanSellModal({ onClose }: { onClose: () => void }) {
+  const [showScanner, setShowScanner] = useState(true);
+  const [scannedSKUs, setScannedSKUs] = useState<string[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch product details for all scanned SKUs
+  useEffect(() => {
+    const fetchProducts = async () => {
+      if (scannedSKUs.length === 0) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const token = getAuthToken();
+        const res = await axios.post(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/products/skus`,
+          { skus: scannedSKUs },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (res.data.success) {
+          setProducts(res.data.products);
+        } else {
+          setError(res.data.message || 'Failed to fetch products');
+        }
+      } catch {
+        setError('Failed to fetch products');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
+  }, [scannedSKUs]);
+
+  // In MultiScanSellModal, update handleScan to accept string | string[]
+  const handleScan = (skuOrSkus: string | string[]) => {
+    if (Array.isArray(skuOrSkus)) {
+      setScannedSKUs(skuOrSkus);
+    } else {
+      setScannedSKUs((prev) => prev.includes(skuOrSkus) ? prev : [...prev, skuOrSkus]);
+    }
+    setShowScanner(false);
+  };
+
+  const handleRemoveSKU = (sku: string) => {
+    setScannedSKUs((prev) => prev.filter((s) => s !== sku));
+    setProducts((prev) => prev.filter((p) => p.sku !== sku));
+  };
+
+  const totalAmount = products.reduce((sum, p) => sum + (p.sellingPrice || 0), 0);
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-[100] p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-auto border border-gray-200/80 flex flex-col">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex items-center justify-between rounded-t-3xl">
+          <div className="flex items-center gap-3">
+            <Scan className="w-6 h-6" />
+            <h2 className="text-xl font-bold">Multi-Scan Sell</h2>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-6 flex-1 overflow-y-auto">
+          {showScanner ? (
+            <QRScanner onClose={() => setShowScanner(false)} onScan={handleScan} multiScan />
+          ) : (
+            <>
+              <div className="mb-6 flex justify-between items-center">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <ShoppingBag className="text-indigo-600" size={20} />
+                  Scanned Products
+                </h3>
+                <button 
+                  onClick={() => setShowScanner(true)}
+                  className="flex items-center gap-1 px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg font-medium hover:bg-indigo-200"
+                >
+                  <Plus size={16} />
+                  Scan More
+                </button>
+              </div>
+              
+              {loading ? (
+                <div className="flex flex-col items-center justify-center min-h-[200px]">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4"></div>
+                  <p className="text-gray-600">Loading products...</p>
+                </div>
+              ) : error ? (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+                  <p className="text-red-600 font-medium">{error}</p>
+                </div>
+              ) : products.length === 0 ? (
+                <div className="flex flex-col items-center justify-center min-h-[200px] gap-4">
+                  <Scan className="text-gray-400 w-12 h-12" />
+                  <p className="text-gray-500 text-center">No products scanned yet</p>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-6 space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                    {products.map((product) => (
+                      <div 
+                        key={product.sku}
+                        className="p-4 bg-white rounded-xl border border-gray-200 shadow-sm"
+                      >
+                        <div className="flex justify-between">
+                          <div>
+                            <div className="font-bold text-gray-800">{product.sku}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {product.category} • {product.subcategory} 
+                              {product.size && ` • ${product.size}`}
+                            </div>
+                            <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                              <div className="w-3 h-3 rounded-full border" style={{ backgroundColor: product.color }} />
+                              {product.color}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-gray-800">रू {product.sellingPrice}</span>
+                            <button 
+                              onClick={() => handleRemoveSKU(product.sku)}
+                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="p-4 bg-indigo-50 rounded-xl">
+                    <div className="flex justify-between items-center font-bold text-lg">
+                      <span>Total Products:</span>
+                      <span>{products.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center font-bold text-lg mt-2">
+                      <span>Total Amount:</span>
+                      <span className="text-indigo-700">रू {totalAmount.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default SellModal;

@@ -7,8 +7,6 @@ import { getAuthToken } from '@/utils/auth';
 import axios from 'axios';
 
 export default function AnalyticsPage() {
-const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
-
   // Fetch sales trends
   const fetchSalesTrends = useCallback(
     async (period = 'daily', start?: string, end?: string) => {
@@ -19,7 +17,7 @@ const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
         params.end = end;
       }
       const response = await axios.get(
-        `${baseUrl}/sales/trends`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/sales/trends`,
         {
           headers: { Authorization: `Bearer ${token}` },
           params

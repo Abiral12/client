@@ -164,56 +164,6 @@ export default function InventoryPage() {
     }
   };
 
-  // Sell a product
-  const handleSell = async (sku: string, quantity: number, soldPrice: number) => {
-    const token = getAuthToken();
-    const product = inventory.find((item) => item.sku === sku);
-    if (!product) {
-      toast.error("Product not found!");
-      return;
-    }
-    if (product.quantity < quantity) {
-      toast.error("Not enough stock available!");
-      return;
-    }
-    try {
-      setIsLoading(true);
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/sales/create`,
-        { productId: product._id, quantity, soldPrice },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      if (res.data.success) {
-        const updatedProduct = res.data.product;
-        if (updatedProduct === null) {
-          setInventory((prev) => prev.filter((item) => item._id !== product._id));
-        } else {
-          setInventory((prev) =>
-            prev.map((item) =>
-              item._id === product._id ? updatedProduct : item
-            )
-          );
-        }
-        toast.success("Product sold successfully!");
-      } else {
-        throw new Error(res.data.message || "Failed to complete sale");
-      }
-    } catch (err: unknown) {
-      let errorMsg = "Failed to complete sale";
-      if (axios.isAxiosError(err) && err.response?.data?.message) {
-        errorMsg = err.response.data.message;
-      }
-      toast.error(errorMsg);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Search function
   const handleSearch = async (query: string) => {
     setIsSearching(true);
@@ -384,7 +334,10 @@ export default function InventoryPage() {
         <SellModal
           inventory={inventory}
           onClose={() => setShowSellModal(false)}
-          onSell={handleSell}
+          onSell={async (sku, quantity, soldPrice) => {
+            // Placeholder: show a toast for now
+            toast.success(`Sold ${quantity} of ${sku} at रू${soldPrice}`);
+          }}
         />
       )}
     </div>

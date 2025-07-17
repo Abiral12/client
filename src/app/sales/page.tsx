@@ -6,7 +6,7 @@ import { Bar } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from "chart.js";
 import axios from "axios";
 import { getAuthToken } from '@/utils/auth';
-import { TrendingUp, CalendarDays, CalendarRange, ArrowUp, ArrowDown, Activity, ArrowRight, ArrowLeft } from 'lucide-react';
+import { TrendingUp, CalendarDays, CalendarRange, ArrowUp, ArrowDown, Activity, ArrowRight, ArrowLeft, ShoppingBag, Package } from 'lucide-react';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -37,6 +37,26 @@ interface SaleHistoryItem {
   date: string;
 }
 
+interface BulkSaleProduct {
+  productId: {
+    subcategory?: string;
+    purchasePrice: number;
+    // add other fields as needed
+  };
+  quantity: number;
+  soldPrice: number;
+}
+
+interface BulkSale {
+  _id: string;
+  createdAt: string;
+  products: BulkSaleProduct[];
+  subtotal: number;
+  orderDiscountType: string;
+  orderDiscountValue: number;
+  total: number;
+}
+
 export default function SalesPage() {
   const [weekData, setWeekData] = useState<SalesTrend[]>([]);
   const [monthData, setMonthData] = useState<SalesTrend[]>([]);
@@ -49,6 +69,12 @@ export default function SalesPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
+  const [bulkSales, setBulkSales] = useState<BulkSale[]>([]);
+  const [bulkLoading, setBulkLoading] = useState(true);
+  const [bulkError, setBulkError] = useState("");
+  const [bulkPage, setBulkPage] = useState(1);
+  const [bulkLimit, setBulkLimit] = useState(10);
+  const [bulkTotalPages, setBulkTotalPages] = useState(1);
 
   const fetchSalesTrends = useCallback(async (start: string, end: string, period: string) => {
     const token = getAuthToken();
@@ -134,6 +160,30 @@ export default function SalesPage() {
     }
     fetchHistory(page, limit);
   }, [page, limit]);
+
+  useEffect(() => {
+    async function fetchBulkSales(page = 1, limit = 10) {
+      setBulkLoading(true);
+      setBulkError("");
+      try {
+        const token = getAuthToken();
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/sales/bulksales`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { page, limit }
+          }
+        );
+        setBulkSales(res.data.bulkSales);
+        setBulkTotalPages(res.data.totalPages || 1);
+      } catch {
+        setBulkError("Failed to fetch bulk sale history");
+      } finally {
+        setBulkLoading(false);
+      }
+    }
+    fetchBulkSales(bulkPage, bulkLimit);
+  }, [bulkPage, bulkLimit]);
 
   const cardStyles = [
     {
@@ -596,9 +646,12 @@ export default function SalesPage() {
           </div>
         </div>
 
-        {/* Sales History Table */}
+ {/* Sales History Table - Enhanced with better colors */}
         <div className="mt-10 bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Product Sold History</h2>
+          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <ShoppingBag className="text-indigo-600" size={20} />
+            Product Sold History
+          </h2>
           {historyError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">{historyError}</div>
           )}
@@ -611,38 +664,48 @@ export default function SalesPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product Name</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sale Price</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cost Price</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Profit</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sale Price</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost Price</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {salesHistory.map((sale) => (
-                    <tr key={sale._id}>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{new Date(sale.date).toLocaleString()}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{sale.productId?.subcategory || "-"} {sale.productId?.size ? `(${sale.productId.size})` : ""} {sale.productId?.color ? `- ${sale.productId.color}` : ""}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{sale.productId?.sku || "-"}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{sale.productId?.category || "-"}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{sale.quantity}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-green-700">
-                        रू {(sale.soldPrice ?? sale.price ?? 0).toLocaleString()}
-                        {sale.soldPrice !== undefined && sale.soldPrice !== sale.price ? (
-                          <span className="text-xs text-gray-500 ml-1">(Discounted)</span>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-amber-700">
-                        रू {(sale.purchasePrice ?? 0).toLocaleString()}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-blue-700">
-                        रू {(((sale.soldPrice ?? sale.price ?? 0) - (sale.purchasePrice ?? 0)).toLocaleString())}
-                      </td>
-                    </tr>
-                  ))}
+                  {salesHistory.map((sale) => {
+                    const profit = (sale.soldPrice ?? sale.price ?? 0) - (sale.purchasePrice ?? 0);
+                    const profitColor = profit >= 0 ? "text-green-700" : "text-red-700";
+                    
+                    return (
+                      <tr key={sale._id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{new Date(sale.date).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{sale.productId?.subcategory || "-"} {sale.productId?.size ? `(${sale.productId.size})` : ""} {sale.productId?.color ? `- ${sale.productId.color}` : ""}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{sale.productId?.sku || "-"}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{sale.productId?.category || "-"}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-700 font-medium">{sale.quantity}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-green-700">
+                          रू {(sale.soldPrice ?? sale.price ?? 0).toLocaleString('en-IN')}
+                          {sale.soldPrice !== undefined && sale.soldPrice !== sale.price ? (
+                            <span className="text-xs text-gray-500 ml-1">(Discounted)</span>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-amber-700">
+                          रू {(sale.purchasePrice ?? 0).toLocaleString('en-IN')}
+                        </td>
+                        <td className={`px-4 py-3 whitespace-nowrap text-sm font-bold ${profitColor}`}>
+                          रू {Math.abs(profit).toLocaleString('en-IN')}
+                          {profit < 0 ? (
+                            <ArrowDown className="inline ml-1" size={14} />
+                          ) : profit > 0 ? (
+                            <ArrowUp className="inline ml-1" size={14} />
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -693,6 +756,141 @@ export default function SalesPage() {
       </select>
     </div>
   </div>
+</div>
+
+{/* Bulk Sale History Table - Enhanced with better colors */}
+        <div className="mt-10 bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <Package className="text-indigo-600" size={20} />
+            Bulk Sale History
+          </h2>
+          {bulkError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">{bulkError}</div>
+          )}
+          {bulkLoading ? (
+            <div className="text-gray-500">Loading bulk sale history...</div>
+          ) : bulkSales.length === 0 ? (
+            <div className="text-gray-500">No bulk sale history found.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Products</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order Discount</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Purchase</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {bulkSales.map((sale) => {
+                    const totalPurchase = sale.products.reduce(
+                      (sum, p) => sum + ((p.productId?.purchasePrice ?? 0) * p.quantity),
+                      0
+                    );
+                    const totalSold = sale.products.reduce(
+                      (sum, p) => sum + ((p.soldPrice ?? 0) * p.quantity),
+                      0
+                    );
+                    let discount = 0;
+                    if (sale.orderDiscountType === "amount") {
+                      discount = sale.orderDiscountValue;
+                    } else if (sale.orderDiscountType === "percent") {
+                      discount = (totalSold * sale.orderDiscountValue) / 100;
+                    }
+                    const totalProfit = totalSold - discount - totalPurchase;
+                    const profitColor = totalProfit >= 0 ? "text-green-700" : "text-red-700";
+                    const discountColor = discount > 0 ? "text-red-600" : "text-gray-600";
+
+                    return (
+                      <tr key={sale._id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{new Date(sale.createdAt).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          <ul className="space-y-1">
+                            {sale.products.map((p, idx) => (
+                              <li key={idx} className="flex justify-between">
+                                <span>{p.productId?.subcategory || 'Unknown'} x{p.quantity}</span>
+                                <span className="font-medium text-green-700">रू {p.soldPrice}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
+                          रू {sale.subtotal.toLocaleString('en-IN')}
+                        </td>
+                        <td className={`px-4 py-3 whitespace-nowrap text-sm font-medium ${discountColor}`}>
+                          {sale.orderDiscountType === 'amount'
+                            ? `रू ${sale.orderDiscountValue.toLocaleString('en-IN')}`
+                            : `${sale.orderDiscountValue}%`}
+                          {discount > 0 && <ArrowDown className="inline ml-1" size={14} />}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-indigo-700">
+                          रू {sale.total.toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-amber-700">
+                          रू {totalPurchase.toLocaleString('en-IN')}
+                        </td>
+                        <td className={`px-4 py-3 whitespace-nowrap text-sm font-bold ${profitColor}`}>
+                          रू {Math.abs(totalProfit).toLocaleString('en-IN')}
+                          {totalProfit < 0 ? (
+                            <ArrowDown className="inline ml-1" size={14} />
+                          ) : totalProfit > 0 ? (
+                            <ArrowUp className="inline ml-1" size={14} />
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+        </tbody>
+      </table>
+     <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-3">
+       <div className="flex items-center gap-1 text-sm text-gray-600">
+         <span>Page {bulkPage} of {bulkTotalPages}</span>
+         <span className="hidden sm:inline">•</span>
+         <span>{bulkSales.length} items</span>
+       </div>
+       <div className="flex items-center gap-2">
+         <button
+           onClick={() => setBulkPage((p) => Math.max(1, p - 1))}
+           disabled={bulkPage === 1}
+           className="flex items-center justify-center p-2 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+           aria-label="Previous page"
+         >
+           <ArrowLeft size={18} className="text-gray-700" />
+           <span className="sr-only sm:not-sr-only sm:ml-1">Previous</span>
+         </button>
+         <button
+           onClick={() => setBulkPage((p) => Math.min(bulkTotalPages, p + 1))}
+           disabled={bulkPage === bulkTotalPages}
+           className="flex items-center justify-center p-2 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+           aria-label="Next page"
+         >
+           <span className="sr-only sm:not-sr-only sm:mr-1">Next</span>
+           <ArrowRight size={18} className="text-gray-700" />
+         </button>
+       </div>
+       <div className="flex items-center gap-2 text-sm">
+         <label htmlFor="bulkPageSize" className="text-gray-600">Rows:</label>
+         <select
+           id="bulkPageSize"
+           value={bulkLimit}
+           onChange={e => {
+             setBulkLimit(Number(e.target.value));
+             setBulkPage(1);
+           }}
+           className="px-2 py-1 border rounded bg-white"
+         >
+           {[5, 10, 20, 50].map(size => (
+             <option key={size} value={size}>{size}</option>
+           ))}
+         </select>
+       </div>
+     </div>
+    </div>
+  )}
 </div>
       </div>
     </div>

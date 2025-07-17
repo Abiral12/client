@@ -6,14 +6,8 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { getAuthToken } from '@/utils/auth';
 import { toast } from 'react-hot-toast';
-import { Product } from '@/app/types/product';
 
-interface StockInFormProps {
-  onClose: () => void;
-  onAddProduct: (product: Product) => void;
-}
-
-const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
+const StockInForm = ({ onClose, onAddProduct }: any) => {
   const [formData, setFormData] = useState({
     category: '',
     subcategory: '',
@@ -45,7 +39,7 @@ const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
     }
   }, [formData.category]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: any) => {
     const { name, value } = e.target;
     setFormData(prev => ({ 
       ...prev, 
@@ -53,7 +47,7 @@ const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
@@ -123,28 +117,16 @@ const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
         setError(errorMsg);
         toast.error(errorMsg);
       }
-    } catch (err: unknown) {
+    } catch (err: any) {
       let errorMsg = 'Server error';
-
-      if (
-        err &&
-        typeof err === 'object' &&
-        'response' in err
-      ) {
-        const errorObj = err as { response?: { data?: unknown; status?: number } };
-        console.error("Backend error response:", errorObj.response?.data);
-
-        // Safely check if data has a message property
-        const data = errorObj.response?.data;
-        if (data && typeof data === 'object' && 'message' in data) {
-          errorMsg = (data as { message: string }).message;
-        } else if (data) {
-          errorMsg = JSON.stringify(data);
-        } else if (errorObj.response?.status) {
-          errorMsg = `HTTP ${errorObj.response.status}`;
-        }
+      
+      if (err.response) {
+        console.error("Backend error response:", err.response.data);
+        errorMsg = err.response.data?.message || 
+                  JSON.stringify(err.response.data) || 
+                  `HTTP ${err.response.status}`;
       }
-
+      
       setError(errorMsg);
       toast.error(errorMsg);
       console.error('API Error:', err);
