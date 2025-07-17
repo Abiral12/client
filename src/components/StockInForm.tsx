@@ -8,17 +8,23 @@ import { getAuthToken } from '@/utils/auth';
 import { toast } from 'react-hot-toast';
 
 // Define a Product type based on the payload and expected returned product
+
 interface Product {
-  _id?: string;
+  _id: string;
+  sku: string;
   category: string;
   subcategory: string;
   size?: string;
-  color?: string;
+  color: string;
   quantity: number;
   purchasePrice: number;
   sellingPrice: number;
-  // Add other fields as needed
+  qrCode?: string;
+  createdAt?: string;
+  lastUpdated?: string;
+  soldCount?: number;
 }
+
 
 interface StockInFormProps {
   onClose: () => void;
