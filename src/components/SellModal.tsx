@@ -356,9 +356,9 @@ const SellModal = ({ onClose }: SellModalProps) => {
                         >
                           <div className="flex justify-between">
                             <div className="flex-1 min-w-0">
-                              <div className="font-bold text-gray-800 truncate">{product.sku}</div>
+                              <div className="font-bold text-gray-800 truncate">{product.subcategory}</div>
                               <div className="text-xs text-gray-500 mt-1">
-                                {product.category} • {product.subcategory} 
+                                {product.sku} • {product.category} 
                                 {product.size && ` • ${product.size}`}
                               </div>
                               <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
