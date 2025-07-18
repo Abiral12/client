@@ -25,14 +25,20 @@ interface SellModalProps {
   onSell: (sku: string, quantity: number, soldPrice: number) => Promise<void>;
 }
 
+type EditableProduct = Omit<Product, 'quantity'> & {
+  quantity: string | number;
+  discountType: 'amount' | 'percent';
+  discountValue: string | number;
+};
+
 const SellModal = ({ onClose }: SellModalProps) => {
   const [step, setStep] = useState<'start' | 'scan' | 'summary'>('start');
   const [scannedSKUs, setScannedSKUs] = useState<string[]>([]);
-  const [products, setProducts] = useState<(Product & { quantity: number; discountType: 'amount' | 'percent'; discountValue: number })[]>([]);
+  const [products, setProducts] = useState<EditableProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [overallDiscountType, setOverallDiscountType] = useState<'amount' | 'percent'>('amount');
-  const [overallDiscountValue, setOverallDiscountValue] = useState(0);
+  const [overallDiscountValue, setOverallDiscountValue] = useState<string | number>('');
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [saleSuccess, setSaleSuccess] = useState(false);
 
@@ -53,9 +59,9 @@ const SellModal = ({ onClose }: SellModalProps) => {
           // Add quantity and discount fields to each product
           setProducts(res.data.products.map((p: Product) => ({
             ...p,
-            quantity: 1,
+            quantity: '1',
             discountType: 'amount',
-            discountValue: 0,
+            discountValue: '',
           })));
         } else {
           setError(res.data.message || 'Failed to fetch products');
@@ -104,7 +110,7 @@ const SellModal = ({ onClose }: SellModalProps) => {
   // Update quantity for a product
   const handleQuantityChange = (sku: string, delta: number) => {
     setProducts((prev) => prev.map((p) =>
-      p.sku === sku ? { ...p, quantity: Math.max(1, p.quantity + delta) } : p
+      p.sku === sku ? { ...p, quantity: Math.max(1, Number(p.quantity) + delta) } : p
     ));
   };
 
@@ -116,14 +122,16 @@ const SellModal = ({ onClose }: SellModalProps) => {
   };
 
   // Calculate per-product total after discount
-  const getProductTotal = (p: Product & { quantity: number; discountType: 'amount' | 'percent'; discountValue: number }) => {
+  const getProductTotal = (p: EditableProduct) => {
     let price = p.sellingPrice;
+    const discount = Number(p.discountValue) || 0;
+    const qty = Number(p.quantity) || 1;
     if (p.discountType === 'amount') {
-      price = Math.max(0, price - p.discountValue);
+      price = Math.max(0, price - discount);
     } else if (p.discountType === 'percent') {
-      price = Math.max(0, price - (price * p.discountValue) / 100);
+      price = Math.max(0, price - (price * discount) / 100);
     }
-    return price * p.quantity;
+    return price * qty;
   };
 
   // Calculate subtotal (before overall discount)
@@ -132,9 +140,9 @@ const SellModal = ({ onClose }: SellModalProps) => {
   // Calculate total after overall discount
   let total = subtotal;
   if (overallDiscountType === 'amount') {
-    total = Math.max(0, subtotal - overallDiscountValue);
+    total = Math.max(0, subtotal - Number(overallDiscountValue));
   } else if (overallDiscountType === 'percent') {
-    total = Math.max(0, subtotal - (subtotal * overallDiscountValue) / 100);
+    total = Math.max(0, subtotal - (subtotal * Number(overallDiscountValue)) / 100);
   }
 
   const handleFinalizeSale = async () => {
@@ -144,16 +152,18 @@ const SellModal = ({ onClose }: SellModalProps) => {
       const token = getAuthToken();
       for (const p of products) {
         let price = p.sellingPrice;
+        const discount = Number(p.discountValue) || 0;
+        const qty = Number(p.quantity) || 1;
         if (p.discountType === 'amount') {
-          price = Math.max(0, price - p.discountValue);
+          price = Math.max(0, price - discount);
         } else if (p.discountType === 'percent') {
-          price = Math.max(0, price - (price * p.discountValue) / 100);
+          price = Math.max(0, price - (price * discount) / 100);
         }
         await axios.post(
           `${process.env.NEXT_PUBLIC_API_BASE_URL}/sales/create`,
           {
             productId: p._id,
-            quantity: p.quantity,
+            quantity: qty,
             soldPrice: price,
           },
           { headers: { Authorization: `Bearer ${token}` } }
@@ -166,14 +176,14 @@ const SellModal = ({ onClose }: SellModalProps) => {
           products: products.map(p => ({
             productId: p._id,
             sku: p.sku,
-            quantity: p.quantity,
-            soldPrice: getProductTotal(p) / p.quantity,
+            quantity: Number(p.quantity),
+            soldPrice: getProductTotal(p) / (Number(p.quantity) || 1),
             discountType: p.discountType,
-            discountValue: p.discountValue,
+            discountValue: Number(p.discountValue),
           })),
           subtotal,
           orderDiscountType: overallDiscountType,
-          orderDiscountValue: overallDiscountValue,
+          orderDiscountValue: Number(overallDiscountValue),
           total,
         },
         { headers: { Authorization: `Bearer ${token}` } }
@@ -188,6 +198,54 @@ const SellModal = ({ onClose }: SellModalProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 1. Update products state to allow quantity and discountValue as string | number
+  // 2. Update input handlers to allow empty string
+  // 3. On blur or submit, validate and convert to number
+
+  // Update product type in local state (not interface):
+  // products: (Product & { quantity: string | number; discountType: 'amount' | 'percent'; discountValue: string | number })[]
+
+  // Update quantity input handler
+  const handleQuantityInput = (sku: string, value: string) => {
+    setProducts(prev => prev.map(p =>
+      p.sku === sku ? { ...p, quantity: value } : p
+    ));
+  };
+  const handleQuantityBlur = (sku: string, value: string) => {
+    if (value === '') return; // allow empty
+    let num = Number(value);
+    if (isNaN(num) || num < 1) num = 1;
+    setProducts(prev => prev.map(p =>
+      p.sku === sku ? { ...p, quantity: num } : p
+    ));
+  };
+
+  // Update discount input handler
+  const handleProductDiscountInput = (sku: string, type: 'amount' | 'percent', value: string) => {
+    setProducts(prev => prev.map(p =>
+      p.sku === sku ? { ...p, discountType: type, discountValue: value } : p
+    ));
+  };
+  const handleProductDiscountBlur = (sku: string, type: 'amount' | 'percent', value: string) => {
+    if (value === '') return; // allow empty
+    let num = Number(value);
+    if (isNaN(num) || num < 0) num = 0;
+    setProducts(prev => prev.map(p =>
+      p.sku === sku ? { ...p, discountType: type, discountValue: num } : p
+    ));
+  };
+
+  // Order discount input
+  const handleOrderDiscountInput = (value: string) => {
+    setOverallDiscountValue(value);
+  };
+  const handleOrderDiscountBlur = (value: string) => {
+    if (value === '') return; // allow empty
+    let num = Number(value);
+    if (isNaN(num) || num < 0) num = 0;
+    setOverallDiscountValue(num);
   };
 
   return (
@@ -386,9 +444,11 @@ const SellModal = ({ onClose }: SellModalProps) => {
                               <input
                                 type="number"
                                 min={1}
-                                value={product.quantity}
-                                onChange={e => handleQuantityChange(product.sku, Number(e.target.value) - product.quantity)}
-                                className="w-12 text-center border-y border-gray-200 bg-white py-1"
+                                value={product.quantity === 0 ? '' : product.quantity}
+                                onChange={e => handleQuantityInput(product.sku, e.target.value)}
+                                onBlur={e => handleQuantityBlur(product.sku, e.target.value)}
+                                placeholder="Enter Quantity"
+                                className="w-20 text-center border-y border-gray-200 bg-white py-1 px-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent rounded-none shadow-sm transition"
                               />
                               <button 
                                 onClick={() => handleQuantityChange(product.sku, 1)}
@@ -401,7 +461,7 @@ const SellModal = ({ onClose }: SellModalProps) => {
                             <div className="flex gap-2">
                               <select
                                 value={product.discountType}
-                                onChange={e => handleProductDiscountChange(product.sku, e.target.value as 'amount' | 'percent', product.discountValue)}
+                                onChange={e => handleProductDiscountChange(product.sku, e.target.value as 'amount' | 'percent', Number(product.discountValue))}
                                 className="border rounded-lg px-2 py-1 text-xs bg-white"
                               >
                                 <option value="amount">₹ Off</option>
@@ -409,10 +469,12 @@ const SellModal = ({ onClose }: SellModalProps) => {
                               </select>
                               <input
                                 type="number"
-                                value={product.discountValue}
-                                onChange={e => handleProductDiscountChange(product.sku, product.discountType, Number(e.target.value))}
-                                className="w-16 text-xs border rounded-lg px-2 py-1 bg-white"
-                                placeholder={product.discountType === 'amount' ? 'Amount' : 'Percent'}
+                                min={0}
+                                value={product.discountValue === 0 ? '' : product.discountValue}
+                                onChange={e => handleProductDiscountInput(product.sku, product.discountType, e.target.value)}
+                                onBlur={e => handleProductDiscountBlur(product.sku, product.discountType, e.target.value)}
+                                className="w-20 text-xs border rounded-lg px-2 py-1 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
+                                placeholder={product.discountType === 'amount' ? 'Enter Discount Amount' : 'Enter Discount %'}
                               />
                             </div>
                             
@@ -444,10 +506,11 @@ const SellModal = ({ onClose }: SellModalProps) => {
                         <input
                           type="number"
                           min={0}
-                          value={overallDiscountValue}
-                          onChange={e => setOverallDiscountValue(Number(e.target.value))}
-                          className="flex-1 border rounded-lg px-3 py-2 bg-white text-sm"
-                          placeholder={overallDiscountType === 'amount' ? 'Discount Amount' : 'Discount %'}
+                          value={overallDiscountValue === 0 ? '' : overallDiscountValue}
+                          onChange={e => handleOrderDiscountInput(e.target.value)}
+                          onBlur={e => handleOrderDiscountBlur(e.target.value)}
+                          className="flex-1 border rounded-lg px-3 py-2 bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
+                          placeholder={overallDiscountType === 'amount' ? 'Enter Discount Amount' : 'Enter Discount %'}
                         />
                       </div>
                     </div>

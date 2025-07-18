@@ -37,7 +37,7 @@ import {
 import { useDebounce } from "use-debounce";
 import { useRouter } from "next/navigation";
 import { startOfDay, endOfDay } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
+import { toZonedTime, format } from "date-fns-tz";
 
 ChartJS.register(
   ArcElement,
@@ -418,7 +418,8 @@ export default function Dashboard() {
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
       date.setDate(today.getDate() - (6 - i));
-      return date.toISOString().split("T")[0]; // Format as YYYY-MM-DD
+      const kathmanduDate = toZonedTime(date, "Asia/Kathmandu");
+      return format(kathmanduDate, "yyyy-MM-dd", { timeZone: "Asia/Kathmandu" });
     });
 
     const stockAddedData = last7Days.map((date) => {
@@ -426,7 +427,8 @@ export default function Dashboard() {
         if (!product.createdAt) return sum;
         const created = new Date(product.createdAt);
         if (isNaN(created.getTime())) return sum;
-        const productDate = created.toISOString().split("T")[0];
+        const kathmanduDate = toZonedTime(created, "Asia/Kathmandu");
+        const productDate = format(kathmanduDate, "yyyy-MM-dd", { timeZone: "Asia/Kathmandu" });
         return productDate === date ? sum + product.quantity : sum;
       }, 0);
     });

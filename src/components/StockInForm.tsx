@@ -255,32 +255,18 @@ const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
                   <Ruler className="h-4 w-4 mr-2 text-indigo-600" /> 
                   Size
                 </label>
-                <div className="relative">
-                  <select 
-                    name="size"
-                    value={formData.size}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white pl-3 pr-10 shadow-sm transition"
-                    required
-                  >
-                    <option value="">Select size</option>
-                    <option value="XS">XS</option>
-                    <option value="S">S</option>
-                    <option value="M">M</option>
-                    <option value="L">L</option>
-                    <option value="XL">XL</option>
-                    <option value="XXL">XXL</option>
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                </div>
+                <input 
+                  type="text"
+                  name="size"
+                  value={formData.size}
+                  onChange={handleChange}
+                  placeholder="Enter The Size"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
+                  required
+                />
               </div>
             )}
             
-            {/* Color - Not required */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 flex items-center">
                 <Palette className="h-4 w-4 mr-2 text-purple-600" /> 
@@ -291,7 +277,7 @@ const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
                 name="color"
                 value={formData.color}
                 onChange={handleChange}
-                placeholder="e.g., Black"
+                placeholder="Enter The Color"
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
               />
             </div>
@@ -307,7 +293,7 @@ const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
                 name="quantity"
                 value={formData.quantity || ''}
                 onChange={handleChange}
-                placeholder="e.g., 100"
+                placeholder="Enter Stock Quantity"
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
                 min="1"
                 required
@@ -327,7 +313,7 @@ const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
                   name="purchasePrice"
                   value={formData.purchasePrice || ''}
                   onChange={handleChange}
-                  placeholder="e.g., 10.00"
+                  placeholder="Enter The Purchase Price"
                   className="w-full pl-8 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
                   min="0"
                   step="0.01"
@@ -349,7 +335,7 @@ const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
                   name="sellingPrice"
                   value={formData.sellingPrice || ''}
                   onChange={handleChange}
-                  placeholder="e.g., 25.00"
+                  placeholder="Enter The Selling Price"
                   className="w-full pl-8 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
                   min="0"
                   step="0.01"
