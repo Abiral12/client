@@ -132,7 +132,7 @@ export default function DataTable({ data, onEdit, onDelete }: DataTableProps) {
   const handleDownload = async (product: Product) => {
     try {
       // Adjust the backend URL if needed
-      const backendUrl = "http://localhost:5000";
+      const backendUrl = process.env.NEXT_PUBLIC_QRCODE;
       const qrUrl = `${backendUrl}/qrcodes/${product.sku}.png`;
       const response = await fetch(qrUrl);
       if (!response.ok) throw new Error("QR code not found");
