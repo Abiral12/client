@@ -249,36 +249,36 @@ const SellModal = ({ onClose }: SellModalProps) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-[100] p-4">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-[100] p-2 sm:p-4">
       <AnimatePresence>
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
-          className="bg-gradient-to-br from-gray-50 to-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden border border-gray-200/80 flex flex-col backdrop-blur-sm"
+          className="bg-gradient-to-br from-gray-50 to-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-[98vw] sm:max-w-lg max-h-[95vh] sm:max-h-[90vh] overflow-hidden border border-gray-200/80 flex flex-col backdrop-blur-sm"
         >
           {/* Enhanced Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex items-center justify-between rounded-t-3xl">
-            <div className="flex items-center gap-3">
-              <ShoppingBag className="w-6 h-6" />
-              <h2 className="text-xl font-bold">Sell Products</h2>
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-4 sm:p-6 flex items-center justify-between rounded-t-2xl sm:rounded-t-3xl">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
+              <h2 className="text-lg sm:text-xl font-bold">Sell Products</h2>
             </div>
             <button 
               onClick={onClose} 
-              className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full transition-all"
+              className="p-1 bg-white/10 hover:bg-white/20 rounded-full transition-all"
             >
-              <X size={20} />
+              <X size={18} className="sm:w-5 sm:h-5" />
             </button>
           </div>
 
-          <div className="p-6 flex-1 overflow-y-auto">
+          <div className="px-3 py-4 sm:p-6 flex-1 overflow-y-auto">
             {/* Start Screen */}
             {step === 'start' && (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col items-center justify-center min-h-[300px] gap-6"
+                className="flex flex-col items-center justify-center min-h-[200px] sm:min-h-[300px] gap-4 sm:gap-6"
               >
                 <div className="bg-indigo-100 p-6 rounded-full">
                   <Scan className="w-16 h-16 text-indigo-600" strokeWidth={1.5} />
@@ -291,7 +291,7 @@ const SellModal = ({ onClose }: SellModalProps) => {
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setStep('scan')}
-                  className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg transition-all text-lg shadow-md flex items-center gap-2"
+                  className="px-6 py-3 sm:px-8 sm:py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg transition-all text-base sm:text-lg shadow-md flex items-center gap-2"
                 >
                   <Scan size={20} />
                   Start Scanning
@@ -302,8 +302,8 @@ const SellModal = ({ onClose }: SellModalProps) => {
             {/* Scan Screen */}
             {step === 'scan' && (
               <div>
-                <div className="mb-6 flex justify-between items-center">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                <div className="mb-6 flex justify-between items-center flex-wrap gap-2">
+                  <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
                     <Scan className="text-indigo-600" size={20} />
                     Scanned Products
                   </h3>
@@ -323,7 +323,7 @@ const SellModal = ({ onClose }: SellModalProps) => {
                 </div>
                 
                 {/* Scanned Items List */}
-                <div className="mb-5 max-h-40 overflow-y-auto bg-gray-50 rounded-xl border border-gray-200 p-3">
+                <div className="mb-5 max-h-32 sm:max-h-40 overflow-y-auto bg-gray-50 rounded-xl border border-gray-200 p-2 sm:p-3">
                   {scannedSKUs.length === 0 ? (
                     <p className="text-center text-gray-500 py-4">No items scanned yet</p>
                   ) : (
@@ -333,7 +333,7 @@ const SellModal = ({ onClose }: SellModalProps) => {
                           key={sku}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="py-2 px-3 bg-white rounded-lg border border-gray-200 shadow-sm flex justify-between items-center"
+                          className="py-2 px-2 sm:px-3 bg-white rounded-lg border border-gray-200 shadow-sm flex justify-between items-center"
                         >
                           <span className="font-medium text-sm truncate">{sku}</span>
                           <button 
@@ -349,13 +349,13 @@ const SellModal = ({ onClose }: SellModalProps) => {
                 </div>
 
                 {/* Scanner Container */}
-                <div className="relative overflow-hidden rounded-2xl border-4 border-indigo-500/20 shadow-lg">
+                <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border-2 sm:border-4 border-indigo-500/20 shadow-lg">
                   <div 
                     id="scanner-container" 
-                    className="min-h-[300px] w-full bg-black"
+                    className="min-h-[180px] sm:min-h-[300px] w-full bg-black"
                   />
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="border-2 border-dashed border-white/50 rounded-xl w-64 h-64" />
+                    <div className="border-2 border-dashed border-white/50 rounded-xl w-40 h-40 sm:w-64 sm:h-64" />
                   </div>
                 </div>
               </div>
@@ -389,32 +389,32 @@ const SellModal = ({ onClose }: SellModalProps) => {
                   </div>
                 ) : (
                   <>
-                    <div className="mb-6 flex justify-between items-center">
-                      <h3 className="text-lg font-semibold flex items-center gap-2">
-                        <ShoppingBag className="text-indigo-600" size={20} />
+                    <div className="mb-6 flex justify-between items-center flex-wrap gap-2">
+                      <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                        <ShoppingBag className="text-indigo-600" size={18} />
                         Order Summary
                       </h3>
                       <button 
                         onClick={() => setStep('scan')}
-                        className="flex items-center gap-1 px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg font-medium hover:bg-indigo-200"
+                        className="flex items-center gap-1 px-3 py-2 sm:px-4 sm:py-2 bg-indigo-100 text-indigo-700 rounded-lg font-medium hover:bg-indigo-200 text-sm sm:text-base"
                       >
-                        <Plus size={16} />
+                        <Plus size={14} />
                         Add Items
                       </button>
                     </div>
                     
                     {/* Product List */}
-                    <div className="mb-6 space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                    <div className="mb-6 space-y-2 sm:space-y-3 max-h-[200px] sm:max-h-[300px] overflow-y-auto pr-1 sm:pr-2">
                       {products.map((product) => (
                         <motion.div
                           key={product.sku}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="p-4 bg-white rounded-xl border border-gray-200 shadow-sm"
+                          className="p-3 sm:p-4 bg-white rounded-xl border border-gray-200 shadow-sm"
                         >
                           <div className="flex justify-between">
                             <div className="flex-1 min-w-0">
-                              <div className="font-bold text-gray-800 truncate">{product.subcategory}</div>
+                              <div className="font-bold text-gray-800 truncate text-base sm:text-lg">{product.subcategory}</div>
                               <div className="text-xs text-gray-500 mt-1">
                                 {product.sku} • {product.category} 
                                 {product.size && ` • ${product.size}`}
@@ -425,7 +425,7 @@ const SellModal = ({ onClose }: SellModalProps) => {
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="font-bold text-gray-800">रू {getProductTotal(product).toFixed(2)}</div>
+                              <div className="font-bold text-gray-800 text-base sm:text-lg">रू {getProductTotal(product).toFixed(2)}</div>
                               <div className="text-xs text-gray-400">
                                 {product.quantity} × रू {product.sellingPrice}
                               </div>
@@ -437,9 +437,9 @@ const SellModal = ({ onClose }: SellModalProps) => {
                             <div className="flex items-center">
                               <button 
                                 onClick={() => handleQuantityChange(product.sku, -1)}
-                                className="p-1.5 bg-gray-100 rounded-l-lg hover:bg-gray-200"
+                                className="p-1 bg-gray-100 rounded-l-lg hover:bg-gray-200 sm:p-1.5"
                               >
-                                <Minus size={16} />
+                                <Minus size={14} />
                               </button>
                               <input
                                 type="number"
@@ -448,21 +448,21 @@ const SellModal = ({ onClose }: SellModalProps) => {
                                 onChange={e => handleQuantityInput(product.sku, e.target.value)}
                                 onBlur={e => handleQuantityBlur(product.sku, e.target.value)}
                                 placeholder="Enter Quantity"
-                                className="w-20 text-center border-y border-gray-200 bg-white py-1 px-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent rounded-none shadow-sm transition"
+                                className="w-14 sm:w-20 text-center border-y border-gray-200 bg-white py-1 px-1 sm:px-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent rounded-none shadow-sm transition text-sm"
                               />
                               <button 
                                 onClick={() => handleQuantityChange(product.sku, 1)}
-                                className="p-1.5 bg-gray-100 rounded-r-lg hover:bg-gray-200"
+                                className="p-1 bg-gray-100 rounded-r-lg hover:bg-gray-200 sm:p-1.5"
                               >
-                                <Plus size={16} />
+                                <Plus size={14} />
                               </button>
                             </div>
                             
-                            <div className="flex gap-2">
+                            <div className="flex gap-1 sm:gap-2">
                               <select
                                 value={product.discountType}
                                 onChange={e => handleProductDiscountChange(product.sku, e.target.value as 'amount' | 'percent', Number(product.discountValue))}
-                                className="border rounded-lg px-2 py-1 text-xs bg-white"
+                                className="border rounded-lg px-1 sm:px-2 py-1 text-xs bg-white"
                               >
                                 <option value="amount">₹ Off</option>
                                 <option value="percent">% Off</option>
@@ -473,16 +473,16 @@ const SellModal = ({ onClose }: SellModalProps) => {
                                 value={product.discountValue === 0 ? '' : product.discountValue}
                                 onChange={e => handleProductDiscountInput(product.sku, product.discountType, e.target.value)}
                                 onBlur={e => handleProductDiscountBlur(product.sku, product.discountType, e.target.value)}
-                                className="w-20 text-xs border rounded-lg px-2 py-1 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
+                                className="w-14 sm:w-20 text-xs border rounded-lg px-1 sm:px-2 py-1 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
                                 placeholder={product.discountType === 'amount' ? 'Enter Discount Amount' : 'Enter Discount %'}
                               />
                             </div>
                             
                             <button 
                               onClick={() => handleRemoveSKU(product.sku)}
-                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
+                              className="p-1 text-red-500 hover:bg-red-50 rounded-lg sm:p-1.5"
                             >
-                              <X size={18} />
+                              <X size={16} className="sm:w-[18px] sm:h-[18px]" />
                             </button>
                           </div>
                         </motion.div>
@@ -490,15 +490,15 @@ const SellModal = ({ onClose }: SellModalProps) => {
                     </div>
                     
                     {/* Discount Section */}
-                    <div className="mb-6 p-4 bg-indigo-50 rounded-xl">
-                      <h4 className="font-semibold text-indigo-700 mb-3 flex items-center gap-2">
+                    <div className="mb-6 p-3 sm:p-4 bg-indigo-50 rounded-xl">
+                      <h4 className="font-semibold text-indigo-700 mb-2 sm:mb-3 flex items-center gap-2 text-base sm:text-lg">
                         Apply Order Discount
                       </h4>
-                      <div className="flex gap-3">
+                      <div className="flex gap-2 sm:gap-3 flex-col sm:flex-row">
                         <select
                           value={overallDiscountType}
                           onChange={e => setOverallDiscountType(e.target.value as 'amount' | 'percent')}
-                          className="flex-1 border rounded-lg px-3 py-2 bg-white text-sm"
+                          className="flex-1 border rounded-lg px-2 sm:px-3 py-2 bg-white text-sm"
                         >
                           <option value="amount">Fixed Amount</option>
                           <option value="percent">Percentage</option>
@@ -509,27 +509,27 @@ const SellModal = ({ onClose }: SellModalProps) => {
                           value={overallDiscountValue === 0 ? '' : overallDiscountValue}
                           onChange={e => handleOrderDiscountInput(e.target.value)}
                           onBlur={e => handleOrderDiscountBlur(e.target.value)}
-                          className="flex-1 border rounded-lg px-3 py-2 bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
+                          className="flex-1 border rounded-lg px-2 sm:px-3 py-2 bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
                           placeholder={overallDiscountType === 'amount' ? 'Enter Discount Amount' : 'Enter Discount %'}
                         />
                       </div>
                     </div>
                     
                     {/* Totals */}
-                    <div className="mb-6 space-y-3">
-                      <div className="flex justify-between py-2 border-b border-gray-200">
+                    <div className="mb-6 space-y-2 sm:space-y-3">
+                      <div className="flex justify-between py-2 border-b border-gray-200 text-sm sm:text-base">
                         <span className="text-gray-600">Subtotal:</span>
                         <span className="font-medium">रू {subtotal.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between py-2 border-b border-gray-200">
+                      <div className="flex justify-between py-2 border-b border-gray-200 text-sm sm:text-base">
                         <span className="text-gray-600">Discount:</span>
                         <span className="font-medium text-red-500">
                           - रू {(subtotal - total).toFixed(2)}
                         </span>
                       </div>
                       <div className="flex justify-between py-2">
-                        <span className="font-bold text-lg">Total:</span>
-                        <span className="font-bold text-xl text-indigo-700">
+                        <span className="font-bold text-base sm:text-lg">Total:</span>
+                        <span className="font-bold text-lg sm:text-xl text-indigo-700">
                           रू {total.toFixed(2)}
                         </span>
                       </div>
@@ -556,7 +556,7 @@ const SellModal = ({ onClose }: SellModalProps) => {
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:shadow-lg transition-all shadow-md"
+                        className="w-full py-3 sm:py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:shadow-lg transition-all shadow-md text-base sm:text-lg"
                         onClick={handleFinalizeSale}
                         disabled={loading}
                       >
@@ -627,66 +627,65 @@ export function MultiScanSellModal({ onClose }: { onClose: () => void }) {
   const totalAmount = products.reduce((sum, p) => sum + (p.sellingPrice || 0), 0);
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-[100] p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-auto border border-gray-200/80 flex flex-col">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-[100] p-2 sm:p-4">
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-[98vw] sm:max-w-lg max-h-[95vh] sm:max-h-[90vh] overflow-auto border border-gray-200/80 flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex items-center justify-between rounded-t-3xl">
-          <div className="flex items-center gap-3">
-            <Scan className="w-6 h-6" />
-            <h2 className="text-xl font-bold">Multi-Scan Sell</h2>
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-4 sm:p-6 flex items-center justify-between rounded-t-2xl sm:rounded-t-3xl">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Scan className="w-5 h-5 sm:w-6 sm:h-6" />
+            <h2 className="text-lg sm:text-xl font-bold">Multi-Scan Sell</h2>
           </div>
           <button 
             onClick={onClose} 
-            className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full"
+            className="p-1 bg-white/10 hover:bg-white/20 rounded-full"
           >
-            <X size={20} />
+            <X size={18} className="sm:w-5 sm:h-5" />
           </button>
         </div>
 
-        <div className="p-6 flex-1 overflow-y-auto">
+        <div className="px-3 py-4 sm:p-6 flex-1 overflow-y-auto">
           {showScanner ? (
             <QRScanner onClose={() => setShowScanner(false)} onScan={handleScan} multiScan />
           ) : (
             <>
-              <div className="mb-6 flex justify-between items-center">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <ShoppingBag className="text-indigo-600" size={20} />
+              <div className="mb-6 flex justify-between items-center flex-wrap gap-2">
+                <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                  <ShoppingBag className="text-indigo-600" size={18} />
                   Scanned Products
                 </h3>
                 <button 
                   onClick={() => setShowScanner(true)}
-                  className="flex items-center gap-1 px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg font-medium hover:bg-indigo-200"
+                  className="flex items-center gap-1 px-3 py-2 sm:px-4 sm:py-2 bg-indigo-100 text-indigo-700 rounded-lg font-medium hover:bg-indigo-200 text-sm sm:text-base"
                 >
-                  <Plus size={16} />
+                  <Plus size={14} />
                   Scan More
                 </button>
               </div>
-              
               {loading ? (
-                <div className="flex flex-col items-center justify-center min-h-[200px]">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4"></div>
+                <div className="flex flex-col items-center justify-center min-h-[120px] sm:min-h-[200px]">
+                  <div className="animate-spin rounded-full h-8 w-8 sm:h-10 sm:w-10 border-b-2 border-indigo-600 mb-4"></div>
                   <p className="text-gray-600">Loading products...</p>
                 </div>
               ) : error ? (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4 text-center">
                   <p className="text-red-600 font-medium">{error}</p>
                 </div>
               ) : products.length === 0 ? (
-                <div className="flex flex-col items-center justify-center min-h-[200px] gap-4">
-                  <Scan className="text-gray-400 w-12 h-12" />
-                  <p className="text-gray-500 text-center">No products scanned yet</p>
+                <div className="flex flex-col items-center justify-center min-h-[120px] sm:min-h-[200px] gap-3 sm:gap-4">
+                  <Scan className="text-gray-400 w-8 h-8 sm:w-12 sm:h-12" />
+                  <p className="text-gray-500 text-center text-sm sm:text-base">No products scanned yet</p>
                 </div>
               ) : (
                 <>
-                  <div className="mb-6 space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                  <div className="mb-6 space-y-2 sm:space-y-3 max-h-[160px] sm:max-h-[300px] overflow-y-auto pr-1 sm:pr-2">
                     {products.map((product) => (
                       <div 
                         key={product.sku}
-                        className="p-4 bg-white rounded-xl border border-gray-200 shadow-sm"
+                        className="p-3 sm:p-4 bg-white rounded-xl border border-gray-200 shadow-sm"
                       >
                         <div className="flex justify-between">
                           <div>
-                            <div className="font-bold text-gray-800">{product.sku}</div>
+                            <div className="font-bold text-gray-800 text-base sm:text-lg">{product.sku}</div>
                             <div className="text-xs text-gray-500 mt-1">
                               {product.category} • {product.subcategory} 
                               {product.size && ` • ${product.size}`}
@@ -696,26 +695,25 @@ export function MultiScanSellModal({ onClose }: { onClose: () => void }) {
                               {product.color}
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold text-gray-800">रू {product.sellingPrice}</span>
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            <span className="font-bold text-gray-800 text-base sm:text-lg">रू {product.sellingPrice}</span>
                             <button 
                               onClick={() => handleRemoveSKU(product.sku)}
-                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
+                              className="p-1 text-red-500 hover:bg-red-50 rounded-lg sm:p-1.5"
                             >
-                              <X size={18} />
+                              <X size={16} className="sm:w-[18px] sm:h-[18px]" />
                             </button>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                  
-                  <div className="p-4 bg-indigo-50 rounded-xl">
-                    <div className="flex justify-between items-center font-bold text-lg">
+                  <div className="p-3 sm:p-4 bg-indigo-50 rounded-xl">
+                    <div className="flex justify-between items-center font-bold text-base sm:text-lg">
                       <span>Total Products:</span>
                       <span>{products.length}</span>
                     </div>
-                    <div className="flex justify-between items-center font-bold text-lg mt-2">
+                    <div className="flex justify-between items-center font-bold text-base sm:text-lg mt-1 sm:mt-2">
                       <span>Total Amount:</span>
                       <span className="text-indigo-700">रू {totalAmount.toFixed(2)}</span>
                     </div>
