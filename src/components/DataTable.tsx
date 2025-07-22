@@ -545,9 +545,7 @@ export default function DataTable({ data, onEdit, onDelete }: DataTableProps) {
                     value={formData.rack || ""}
                     onChange={handleInputChange}
                     placeholder="Enter Rack Location (e.g., A1, B2)"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
-                    required
-                  />
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"/>
                 </div>
                 
                 {/* Description */}
