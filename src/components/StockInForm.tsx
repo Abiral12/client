@@ -354,7 +354,7 @@ const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 flex items-center">
                 <span className="mr-2">🗄️</span>
-                Rack Location
+                Rack Location (optional)
               </label>
               <input 
                 type="text" 
