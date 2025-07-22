@@ -23,6 +23,8 @@ interface Product {
   createdAt?: string;
   lastUpdated?: string;
   soldCount?: number;
+  rack?: string;
+  description?: string;
 }
 
 
@@ -40,6 +42,8 @@ const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
     quantity: 0,
     purchasePrice: 0,
     sellingPrice: 0,
+    rack: '',
+    description: '',
   });
   
   const [isLoading, setIsLoading] = useState(false);
@@ -63,7 +67,7 @@ const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
     }
   }, [formData.category]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ 
       ...prev, 
@@ -115,7 +119,9 @@ const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
       color: formData.color,
       quantity: Number(formData.quantity),
       purchasePrice: Number(formData.purchasePrice),
-      sellingPrice: Number(formData.sellingPrice)
+      sellingPrice: Number(formData.sellingPrice),
+      rack: formData.rack,
+      description: formData.description
     };
 
     console.log("Submitting payload:", payload);
@@ -342,6 +348,39 @@ const StockInForm = ({ onClose, onAddProduct }: StockInFormProps) => {
                   required
                 />
               </div>
+            </div>
+            
+            {/* Rack */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 flex items-center">
+                <span className="mr-2">🗄️</span>
+                Rack Location
+              </label>
+              <input 
+                type="text" 
+                name="rack"
+                value={formData.rack}
+                onChange={handleChange}
+                placeholder="Enter Rack Location (e.g., A1, B2)"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
+                required
+              />
+            </div>
+            
+            {/* Description */}
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-gray-700 flex items-center">
+                <span className="mr-2">📝</span>
+                Description (optional)
+              </label>
+              <textarea 
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                placeholder="Enter product description"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
+                rows={3}
+              />
             </div>
           </div>
           

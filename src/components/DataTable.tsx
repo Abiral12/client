@@ -28,6 +28,8 @@ interface Product {
   purchasePrice: number;
   sellingPrice: number;
   createdAt?: string;
+  rack?: string;
+  description?: string;
 }
 
 interface DataTableProps {
@@ -77,12 +79,14 @@ export default function DataTable({ data, onEdit, onDelete }: DataTableProps) {
       quantity: product.quantity,
       purchasePrice: product.purchasePrice,
       sellingPrice: product.sellingPrice,
+      rack: product.rack,
+      description: product.description,
     });
     setIsEditModalOpen(true);
   };
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -227,6 +231,12 @@ export default function DataTable({ data, onEdit, onDelete }: DataTableProps) {
               scope="col"
               className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >
+              Rack
+            </th>
+            <th
+              scope="col"
+              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
               Price
             </th>
             <th
@@ -287,6 +297,15 @@ export default function DataTable({ data, onEdit, onDelete }: DataTableProps) {
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
                 {item.color}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {item.rack ? (
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-md">
+                    {item.rack}
+                  </span>
+                ) : (
+                  <span className="text-gray-400">Not assigned</span>
+                )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
               रू {item.sellingPrice}
@@ -512,6 +531,39 @@ export default function DataTable({ data, onEdit, onDelete }: DataTableProps) {
                       required
                     />
                   </div>
+                </div>
+                
+                {/* Rack */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 flex items-center">
+                    <span className="mr-2">🗄️</span>
+                    Rack Location
+                  </label>
+                  <input 
+                    type="text" 
+                    name="rack"
+                    value={formData.rack || ""}
+                    onChange={handleInputChange}
+                    placeholder="Enter Rack Location (e.g., A1, B2)"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
+                    required
+                  />
+                </div>
+                
+                {/* Description */}
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-medium text-gray-700 flex items-center">
+                    <span className="mr-2">📝</span>
+                    Description (optional)
+                  </label>
+                  <textarea 
+                    name="description"
+                    value={formData.description || ""}
+                    onChange={handleInputChange}
+                    placeholder="Enter product description"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition"
+                    rows={3}
+                  />
                 </div>
               </div>
 
