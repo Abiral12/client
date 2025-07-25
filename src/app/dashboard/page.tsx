@@ -130,8 +130,8 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Fetch products from backend
-  const fetchProducts = async () => {
+  // Fetch LOWSTOCK products from backend
+  const fetchLowStockProducts = async () => {
     setIsLoading(true);
     setError("");
     const token = getAuthToken();
@@ -142,7 +142,7 @@ export default function Dashboard() {
     }
     try {
       const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/products/filter`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/products?all=true`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -153,8 +153,47 @@ export default function Dashboard() {
 
       if (response.data.success) {
         setInventory(response.data.products);
-        updateStats(response.data.products);
-        setTotalPages(response.data.totalPages || 1);
+        // updateStats(response.data.products);
+        setTotalPages(response.data.totalPages);
+      } else {
+        throw new Error(response.data.message || "Failed to fetch products");
+      }
+    } catch (err: unknown) {
+      let errorMsg = "Failed to fetch products";
+      if (axios.isAxiosError(err) && err.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      }
+      setError(errorMsg);
+      toast.error(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+   const fetchAllProducts = async () => {
+    setIsLoading(true);
+    setError("");
+    const token = getAuthToken();
+    if (!token) {
+      setError("Authentication required");
+      setIsLoading(false);
+      return;
+    }
+    try {
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/products`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          params: { page, limit },
+        }
+      );
+
+      if (response.data.success) {
+        setInventory(response.data.products);
+        // updateStats(response.data.products);
+        setTotalPages(response.data.totalPages);
       } else {
         throw new Error(response.data.message || "Failed to fetch products");
       }
@@ -171,21 +210,21 @@ export default function Dashboard() {
   };
 
   // Update stats based on inventory data
-  const updateStats = (products: Product[]) => {
-    const totalStock = products.reduce((sum, item) => sum + item.quantity, 0);
-    const lowStockItems = products.filter((item) => item.quantity < 10).length;
-    setStats((prevStats) =>
-      prevStats.map((stat) => {
-        if (stat.title === "Total Stock") {
-          return { ...stat, value: totalStock.toLocaleString() };
-        }
-        if (stat.title === "Low Stock Items") {
-          return { ...stat, value: lowStockItems.toString() };
-        }
-        return stat;
-      })
-    );
-  };
+  // const updateStats = (products: Product[]) => {
+  //   const totalStock = products.reduce((sum, item) => sum + item.quantity, 0);
+  //   const lowStockItems = products.filter((item) => item.quantity < 10).length;
+  //   setStats((prevStats) =>
+  //     prevStats.map((stat) => {
+  //       if (stat.title === "Total Stock") {
+  //         return { ...stat, value: totalStock.toLocaleString() };
+  //       }
+  //       if (stat.title === "Low Stock Items") {
+  //         return { ...stat, value: lowStockItems.toString() };
+  //       }
+  //       return stat;
+  //     })
+  //   );
+  // };
 
   // Add a function to fetch today's sales revenue
   const fetchTodaysSales = useCallback(async () => {
@@ -215,8 +254,31 @@ export default function Dashboard() {
     return 0;
   }, []);
 
+  const fetchProductStats = async () => {
+  const token = getAuthToken();
+  const response = await axios.get(
+    `${process.env.NEXT_PUBLIC_API_BASE_URL}/products/stats`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (response.data.success) {
+    setStats((prevStats) =>
+      prevStats.map((stat) => {
+        if (stat.title === "Total Stock") {
+          return { ...stat, value: response.data.totalStock.toLocaleString() };
+        }
+        if (stat.title === "Low Stock Items") {
+          return { ...stat, value: response.data.lowStockItems.toString() };
+        }
+        return stat;
+      })
+    );
+  }
+};
+
   useEffect(() => {
-    fetchProducts();
+    fetchLowStockProducts();
+    fetchAllProducts();
+    fetchProductStats();
     // Fetch today's sales and update stats
     fetchTodaysSales().then((todaysRevenue) => {
       setStats((prevStats) =>
@@ -236,7 +298,7 @@ export default function Dashboard() {
     }
     setInventory((prev) => [newProduct, ...prev]);
     setShowStockIn(false);
-    fetchProducts();
+    fetchAllProducts();
   };
 
   // Edit product
@@ -371,7 +433,7 @@ export default function Dashboard() {
         }
       );
       setInventory(response.data.products);
-      updateStats(response.data.products);
+      // fetchProductStats(response.data.products);
     } catch {
       toast.error("Failed to search products");
     } finally {
@@ -409,7 +471,7 @@ export default function Dashboard() {
       handleSearch(debouncedSearchQuery);
     } else {
       // If search query is empty, reset to default view
-      fetchProducts();
+      fetchLowStockProducts();
     }
   }, [debouncedSearchQuery, page, limit]);
 

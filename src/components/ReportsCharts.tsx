@@ -107,7 +107,7 @@ const ReportsChart: React.FC<ReportsChartProps> = ({
     try {
       const token = getAuthToken();
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/products`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/products?all=true`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -356,6 +356,9 @@ const ReportsChart: React.FC<ReportsChartProps> = ({
                   <th className="px-3 py-2 text-left">Category</th>
                   <th className="px-3 py-2 text-left">Subcategory</th>
                   <th className="px-3 py-2 text-left">Quantity</th>
+                  <th className="px-3 py-2 text-left">color</th>
+                  <th className="px-3 py-2 text-left">Size</th>
+                  <th className="px-3 py-2 text-left">Price</th>
                 </tr>
               </thead>
               <tbody>
@@ -365,6 +368,11 @@ const ReportsChart: React.FC<ReportsChartProps> = ({
                     <td className="px-3 py-2">{p.category}</td>
                     <td className="px-3 py-2">{p.subcategory}</td>
                     <td className="px-3 py-2 text-amber-700 font-semibold">{p.quantity}</td>
+                    <td className="px-3 py-2">{p.color}</td>
+                    <td className="px-3 py-2">{p.size}</td>
+                    <td className="px-3 py-2">{p.sellingPrice}</td>
+                    
+
                   </tr>
                 ))}
               </tbody>
