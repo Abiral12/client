@@ -90,6 +90,7 @@ export default function Dashboard() {
   const [showStockIn, setShowStockIn] = useState(false);
   const [showSellModal, setShowSellModal] = useState(false);
   const [inventory, setInventory] = useState<Product[]>([]);
+  const [topProducts, setTopProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [stats, setStats] = useState([
@@ -169,6 +170,46 @@ export default function Dashboard() {
       setIsLoading(false);
     }
   };
+
+    const fetchTopSellingProducts = async () => {
+    setIsLoading(true);
+    setError("");
+    const token = getAuthToken();
+    if (!token) {
+      setError("Authentication required");
+      setIsLoading(false);
+      return;
+    }
+    try {
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/products?all=true`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          params: { page, limit },
+        }
+      );
+
+      if (response.data.success) {
+        setTopProducts(response.data.products);
+        // updateStats(response.data.products);
+        setTotalPages(response.data.totalPages);
+      } else {
+        throw new Error(response.data.message || "Failed to fetch products");
+      }
+    } catch (err: unknown) {
+      let errorMsg = "Failed to fetch products";
+      if (axios.isAxiosError(err) && err.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      }
+      setError(errorMsg);
+      toast.error(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
    const fetchAllProducts = async () => {
     setIsLoading(true);
@@ -471,7 +512,8 @@ export default function Dashboard() {
       handleSearch(debouncedSearchQuery);
     } else {
       // If search query is empty, reset to default view
-      fetchLowStockProducts();
+      fetchAllProducts();
+      fetchTopSellingProducts()
     }
   }, [debouncedSearchQuery, page, limit]);
 
@@ -675,7 +717,7 @@ export default function Dashboard() {
                   <div className="h-64">
                     <Bar
                       data={{
-                        labels: inventory
+                        labels: topProducts
                           .slice() // copy array
                           .sort(
                             (a, b) => (b.soldCount || 0) - (a.soldCount || 0)
@@ -685,7 +727,7 @@ export default function Dashboard() {
                         datasets: [
                           {
                             label: "Units Sold",
-                            data: inventory
+                            data: topProducts
                               .slice()
                               .sort(
                                 (a, b) =>
